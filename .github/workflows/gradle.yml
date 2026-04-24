@@ -1,10 +1,10 @@
-name: Build JAR
+name: Build NeoForge Mod
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   workflow_dispatch:          # 允许手动触发
 
 jobs:
@@ -12,22 +12,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-    - name: Build with Gradle
-      run: ./gradlew build
+      - name: Build with Gradle
+        run: ./gradlew build
 
-    - name: Upload JAR artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: my-jar-file          # 下载时看到的压缩包名称
-        path: build/libs/*.jar     # JAR 文件所在的路径
+      # 调试：列出所有生成的 JAR 文件（方便定位路径）
+      - name: List all JAR files
+        run: find . -name "*.jar" -type f
+
+      # 尝试上传常见路径：单模块项目的 build/libs
+      - name: Upload JAR (common path)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar-common
+          path: build/libs/*.jar
+        continue-on-error: true
+
+      # 尝试上传常见路径：多模块项目的 forge 子项目
+      - name: Upload JAR (forge subproject)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar-forge
+          path: forge/build/libs/*.jar
+        continue-on-error: true
+
+      # 通用上传：递归查找所有 build/libs 下的 JAR，排除 sources 和 javadoc
+      - name: Upload all mod JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-mod-jars
+          path: |
+            **/build/libs/*.jar
+            !**/build/libs/*-sources.jar
+            !**/build/libs/*-javadoc.jar
+          if-no-files-found: warn
